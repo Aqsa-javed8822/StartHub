@@ -2,7 +2,7 @@
 
 StartHub is a modern, multi-page website for a data analytics and business solutions company. Built with WordPress and the Phlox theme, it presents services, case studies, customer testimonials, frequently asked questions and contact options in a clean, colorful interface with 3D-style illustrations.
 
-![StartHub Home Page](./screenshots/starthub-home.png)
+![StartHub Home Page](./screenshots/home.png)
 
 ---
 
@@ -20,7 +20,7 @@ StartHub is a modern, multi-page website for a data analytics and business solut
 10. [Customization](#customization)
 11. [Key Learnings](#key-learnings)
 12. [Author](#author)
-13. [License](#license)
+
 
 ---
 
