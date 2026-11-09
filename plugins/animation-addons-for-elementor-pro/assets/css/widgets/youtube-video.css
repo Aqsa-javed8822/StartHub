@@ -1,0 +1,225 @@
+.aae-addon-yt-grid {
+  gap: 15px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.aae-addon-yt-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.aae-addon-yt-item .item-inner {
+  position: relative;
+  height: 100%;
+}
+
+.aae-addon-yt-item iframe {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.aae-addon-yt-item img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+
+.aae-addon-yt-item .title-wrap {
+  padding: 15px;
+}
+
+.aae-addon-yt-item .title {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+}
+
+.aae-addon-yt-item .aae-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aae-addon-yt-item .aae-play-button::after {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 18px solid #fff;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+}
+
+/* Popup overlay */
+.aae-yt-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 9998;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.aae-yt-popup-overlay.active {
+  display: flex;
+}
+
+/* Popup content */
+.aae-yt-popup-content {
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.aae-yt-popup-content iframe {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Close button */
+.aae-yt-popup-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: #fff;
+  cursor: pointer;
+  z-index: 10000;
+}
+
+.yt-videos-slider {
+  height: 560px;
+}
+@media (max-width: 991px) {
+  .yt-videos-slider {
+    height: 480px;
+  }
+}
+@media (max-width: 767px) {
+  .yt-videos-slider {
+    height: 360px;
+  }
+}
+
+.aae--yt-playlist-wrapper {
+  gap: 30px;
+  display: flex;
+}
+.aae--yt-playlist-wrapper svg {
+  width: 1em;
+  height: 1em;
+}
+
+.aae--yt-videos {
+  flex: 0 0 65%;
+  overflow: hidden;
+}
+.aae--yt-videos .video-wrap {
+  width: 100%;
+  height: 700px;
+}
+.aae--yt-videos iframe {
+  width: 100%;
+  height: 100%;
+}
+
+.aae--yt-playlist {
+  flex: 1;
+  height: 700px;
+  overflow-y: auto;
+  gap: 15px;
+  display: flex;
+  flex-direction: column;
+}
+.aae--yt-playlist .item-wrap {
+  gap: 10px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  transition: all 0.3s;
+}
+.aae--yt-playlist .item-wrap.active {
+  background: #efbaba;
+}
+.aae--yt-playlist .item-wrap.active .number {
+  display: none;
+}
+.aae--yt-playlist .item-wrap.active .icon {
+  display: block;
+}
+.aae--yt-playlist .number-wrap {
+  flex: 0 0 20px;
+  font-size: 16px;
+  line-height: 0;
+  transition: all 0.3s;
+}
+.aae--yt-playlist .number-wrap .icon {
+  display: none;
+}
+.aae--yt-playlist .thumb {
+  flex: 0 0 120px;
+  line-height: 0;
+}
+.aae--yt-playlist .thumb img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+.aae--yt-playlist .title-wrap {
+  flex: 1;
+}
+.aae--yt-playlist .title {
+  font-size: 18px;
+  font-weight: 400;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.3s;
+}
+
+.position-column .aae--yt-playlist,
+.position-column-reverse .aae--yt-playlist {
+  height: auto;
+  overflow-x: auto;
+  flex-direction: row;
+}
+.position-column .item-wrap,
+.position-column-reverse .item-wrap {
+  min-width: 300px;
+}

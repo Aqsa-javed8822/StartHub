@@ -1,0 +1,913 @@
+/* eslint-env browser */
+
+/**
+ * Shared preset-apply engine.
+ *
+ * The React PresetPickerControl (the "Apply Preset" dropdown) and the editor
+ * auto-preset module (which applies a default preset when a Loop Grid Slider is
+ * dropped) both need the exact same transform: sanitize a preset model, unwrap a
+ * container root, regenerate local style ids so repeated applies don't collide,
+ * optionally rewrite the root type (a slide reusing a grid-item preset must stay
+ * a slide), then replace a target element in place. This module is that engine so
+ * both call sites stay in lock-step.
+ */
+
+import {
+  createElements,
+  getContainer,
+  removeElements,
+  selectElement,
+} from '@elementor/editor-elements';
+
+import { applySettingsToDoms } from '../editor-bridge/settings-bridge';
+
+// Container element types whose wrapper is unwrapped on apply.
+export const CONTAINER_TYPES = ['e-flexbox', 'e-div-block', 'e-grid', 'container'];
+
+// Element types that declare the `aae_preset_snapshot` prop in their PHP
+// props schema, and therefore support "Reset to Default" (see
+// applyPresetModel's snapshot-carrying below and resetElementToOriginal()).
+// Deliberately an explicit allowlist rather than a runtime schema check: an
+// undeclared prop is only silently dropped on SAVE (Props_Parser::validate()),
+// not necessarily at create-time, so writing it onto a type that hasn't
+// opted in is a risk with no upside. Add a type here only after its own
+// class's define_props_schema() declares the prop.
+export const SNAPSHOT_REVERT_TYPES = [
+  'e-aae-a-btn',
+  'e-aae-a-btn-pro',
+  'e-aae-a-social-share',
+  'e-aae-a-slider',
+  'e-aae-a-toggle-switcher',
+  'e-aae-a-timeline',
+  'e-aae-a-stack-cards',
+  'e-aae-a-progressbar',
+  'e-aae-a-loop-item',
+  'e-aae-a-image-compare',
+  'e-aae-a-form',
+  'e-aae-a-flip-box',
+  'e-aae-a-accordion',
+];
+
+// Some element types share another type's preset library. The Loop Grid Slider's
+// slide item (`e-aae-a-loop-slide-item`) is a subclass of the Loop Grid item
+// (`e-aae-a-loop-item`) with the same authored-card shape, so it reuses the Loop
+// Grid presets. Presets are keyed by the type detected inside each preset model
+// (always `e-aae-a-loop-item` here), so without this alias the slide item's
+// picker is empty. On apply we rewrite the created root's type to the selected
+// element's own type so a slide stays a slide.
+export const PRESET_TYPE_ALIASES = {
+  'e-aae-a-loop-slide-item': 'e-aae-a-loop-item',
+};
+
+// Per-type in-memory cache, populated by loadPresetsForType(). Both
+// PresetPickerControl (on mount) and auto-preset.js (on drop) read through
+// this same cache so a type fetched once this session is available to both
+// call sites without duplicate network requests.
+//
+// ONLY successful reads land here. A failed one must never be memoised: the
+// cache is checked before any fetch, so a cached [] from a blip would both
+// hide the preset control (an empty list is how the control decides it has
+// nothing to show) and guarantee nothing ever re-fetched it — the control
+// stayed gone for the rest of the editor session, recoverable only by
+// reloading the editor.
+const _fetchedPresetsByType = {};
+const _pendingFetchesByType = {};
+
+/** Cache key for a type, honouring the alias table. */
+function presetCacheKey(type) {
+  return _fetchedPresetsByType[type] !== undefined ? type : PRESET_TYPE_ALIASES[type] || type;
+}
+
+/**
+ * Synchronous read of whatever presets have already been fetched THIS
+ * session for a type (honouring the alias table). Returns [] for a type
+ * that hasn't been fetched yet — callers that can tolerate an empty result
+ * on a cold type (e.g. auto-preset's drag-drop default, which awaits
+ * ensurePresetsLoaded() first) can use this directly; UI code that must
+ * show a real list should await loadPresetsForType() instead.
+ */
+export function getCachedPresetsForType(type) {
+  const list = _fetchedPresetsByType[presetCacheKey(type)];
+  return Array.isArray(list) ? list : [];
+}
+
+/**
+ * Drop a type's cached presets so the next load re-fetches it. Used by the
+ * picker's "Try again" action after a failed read.
+ */
+export function invalidatePresetsForType(type) {
+  const key = presetCacheKey(type);
+  delete _fetchedPresetsByType[key];
+  delete _pendingFetchesByType[key];
+}
+
+/**
+ * Fetches presets for one element type from this plugin's own REST proxy
+ * (aae/v1/presets — see inc/Atomic/Presets/Rest.php), which merges remote
+ * (themecrowdy.com) + local bundled presets server-side.
+ *
+ * Resolves to `{ presets, failed }` and never rejects. `failed` is true when
+ * the list could not be read in full — either the request itself failed, or
+ * the route answered 200 while reporting `remote_failed` (it always answers
+ * 200, even during a remote outage, so the flag is the only way to tell an
+ * outage from a type that genuinely has no presets). `presets` still carries
+ * whatever WAS readable in that case, i.e. the locally bundled ones.
+ *
+ * Safe to call repeatedly for the same type: a fetch already in flight is
+ * shared (not duplicated), and a type already resolved this session is
+ * served straight from the in-memory cache.
+ */
+export function loadPresetsForType(type) {
+  const key = presetCacheKey(type);
+
+  if (_fetchedPresetsByType[key] !== undefined) {
+    return Promise.resolve({ presets: _fetchedPresetsByType[key], failed: false });
+  }
+
+  if (_pendingFetchesByType[key]) {
+    return _pendingFetchesByType[key];
+  }
+
+  const config = window.AAE_PRESET_CONFIG;
+  if (!config || !config.restUrl) {
+    // Missing config is a permanent condition for this editor session, not a
+    // transient failure — caching it is correct, and retrying would be futile.
+    _fetchedPresetsByType[key] = [];
+    return Promise.resolve({ presets: [], failed: false });
+  }
+
+  // config.restUrl is rest_url('aae/v1/presets') — on a PLAIN-permalink
+  // install that's already a query string itself, e.g.
+  // "https://site.test/?rest_route=/aae/v1/presets" (no pretty rewrite
+  // rules), so naively appending "?element_type=…" produces a malformed
+  // double-query URL WordPress can't parse (rest_route ends up containing
+  // the element_type param as part of its own value, always 404ing).
+  // Appending with "&" when restUrl already has a "?" — matching how PHP's
+  // add_query_arg() handles the same ambiguity — is correct in both cases.
+  const separator = config.restUrl.indexOf('?') === -1 ? '?' : '&';
+  const url = `${config.restUrl}${separator}element_type=${encodeURIComponent(key)}`;
+
+  const promise = fetch(url, {
+    headers: config.nonce ? { 'X-WP-Nonce': config.nonce } : undefined,
+  })
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`aae/v1/presets responded ${res.status}`);
+      }
+      return res.json();
+    })
+    .then((data) => {
+      const presets = Array.isArray(data?.presets) ? data.presets : [];
+      const failed = !!data?.remote_failed;
+
+      delete _pendingFetchesByType[key];
+      if (!failed) {
+        _fetchedPresetsByType[key] = presets;
+      }
+
+      return { presets, failed };
+    })
+    .catch(() => {
+      delete _pendingFetchesByType[key];
+      return { presets: [], failed: true };
+    });
+
+  _pendingFetchesByType[key] = promise;
+  return promise;
+}
+
+/**
+ * List-only wrapper around loadPresetsForType() for callers that have no
+ * meaningful response to a failed read (auto-preset's drag-drop default just
+ * skips seeding a preset). Resolves to [] on failure — never rejects.
+ */
+export function ensurePresetsLoaded(type) {
+  return loadPresetsForType(type).then(({ presets }) => presets);
+}
+
+export function isContainerModel(model) {
+  const type = model.widgetType || model.elType;
+  return CONTAINER_TYPES.indexOf(type) !== -1;
+}
+
+/**
+ * Text-ish prop name per element type, for carrying a converted leaf's label
+ * into the container's seeded label child. Keyed by the CHILD's type.
+ */
+const TEXT_PROP_BY_TYPE = {
+  'e-paragraph': 'paragraph',
+  'e-heading': 'title',
+};
+
+/**
+ * Repair preset nodes that were exported while an element type was still a
+ * LEAF WIDGET and has since become an Atomic_Element_Base container.
+ *
+ * The shape a leaf saves is `{ elType: 'widget', widgetType: 'e-x' }`; a
+ * container saves `{ elType: 'e-x' }`. A preset published before the switch
+ * keeps the old shape forever, and applying it is FATAL rather than merely
+ * wrong, for a reason worth spelling out because nothing about the error names
+ * this cause:
+ *
+ *   ElementsCollection.model() resolves the class by `widgetType || elType`
+ *   (editor.js), so `widgetType: 'e-x'` still finds the now-ELEMENT type and
+ *   hands back AtomicElementBaseModel. That model's initialize() then does
+ *   `this.config = elementor.config.elements[ this.get('elType') ]` — and
+ *   `elType` is the literal string 'widget', which is NOT a key in
+ *   config.elements. `this.config` is undefined, and because a converted leaf
+ *   has `elements: []`, initialize() goes on to call onElementCreate() →
+ *   getDefaultChildren() → `undefined.default_children` and throws. The
+ *   element comes back null from createElements() and Elementor's own forEach
+ *   then dies on `.model` of null — which is the error the user actually sees,
+ *   two frames removed from anything that mentions the real problem.
+ *
+ * Real case: every AAE form preset on the preset server stores
+ * `e-aae-a-form-submit` as a widget (18 nodes across all 16 presets); the
+ * Submit button became a container so its label and icon could be real,
+ * styleable elements. Regenerating the presets is the actual fix — this keeps
+ * already-published ones working, here and on every site that has them.
+ *
+ * Deliberately GENERIC: it triggers on "this widgetType is a registered
+ * element type", so the next such conversion needs no code change.
+ */
+export function migrateLegacyWidgetShape(model) {
+  if (!model || typeof model !== 'object') {
+    return model;
+  }
+
+  const elementsConfig = window.elementor?.config?.elements;
+  const config = elementsConfig && model.elType === 'widget' && model.widgetType
+    ? elementsConfig[model.widgetType]
+    : null;
+
+  if (config) {
+    model.elType = model.widgetType;
+    delete model.widgetType;
+
+    // Seed the container's CURRENT default children rather than leaving
+    // `elements: []` for Elementor to fill: doing it here is what lets the old
+    // leaf's `text` survive as the label. An empty array would work too, but
+    // the preset's own wording ("Send Message") would be silently replaced by
+    // the default "Submit".
+    if (!Array.isArray(model.elements) || model.elements.length === 0) {
+      const seeded = JSON.parse(JSON.stringify(config.default_children || []));
+      const label = model.settings && model.settings.text;
+
+      if (label) {
+        const target = seeded.find((child) => TEXT_PROP_BY_TYPE[child.widgetType]);
+        if (target) {
+          target.settings = target.settings || {};
+          target.settings[TEXT_PROP_BY_TYPE[target.widgetType]] = label;
+        }
+        // The container has no `text` prop, so leaving it would be a setting
+        // no schema declares — Props_Parser::validate() drops it on save.
+        delete model.settings.text;
+      }
+
+      model.elements = seeded;
+    }
+  }
+
+  (Array.isArray(model.elements) ? model.elements : []).forEach(migrateLegacyWidgetShape);
+
+  return model;
+}
+
+/**
+ * Give every node in a preset tree the two keys Elementor's v1 `cloneItem()`
+ * dereferences without a guard.
+ *
+ * `createElements(..., { clone: true })` routes through `addElement()` →
+ * `cloneItem()` (editor.js), which does exactly this on each node and recurses:
+ *
+ *   item.settings._element_id = '';
+ *   item.elements.forEach( ... );
+ *
+ * A node with no `elements` key therefore throws "Cannot read properties of
+ * undefined (reading 'forEach')" inside Elementor, and the half-built element
+ * comes back null from createElements() — which is the second error the user
+ * sees ("Cannot read properties of null (reading 'model')"), again naming
+ * nothing about the real cause.
+ *
+ * Two sources produce such nodes:
+ *
+ * - `config.default_children` seeded by migrateLegacyWidgetShape() above.
+ *   Those come straight from PHP's Widget_Builder::build(), whose payload has
+ *   elType/widgetType/settings/isLocked/editor_settings and NO `elements` —
+ *   widgets hold no children server-side. Elementor never trips on its own
+ *   default_children because its AtomicElementBaseModel.buildElement() applies
+ *   the very same defaulting (`element.elements || []`, `settings ?? {}`)
+ *   before the model is built; we copy the raw config, so we must do it too.
+ *   Real case: the Form presets, whose `e-aae-a-form-submit` nodes get seeded
+ *   with the Paragraph label + SVG icon children.
+ *
+ * - preset JSON exported by a producer that omitted `elements` on leaves.
+ *
+ * Both are fixed by the same pass, so this is deliberately unconditional
+ * rather than keyed to a widget type. `settings` is also coerced when it
+ * arrives as a PHP empty array (`[]` in JSON) — cloneItem would happily write
+ * `_element_id` onto an array and hand Backbone a settings array.
+ */
+export function normalizeElementShape(model) {
+  if (!model || typeof model !== 'object') {
+    return model;
+  }
+
+  if (!model.settings || typeof model.settings !== 'object' || Array.isArray(model.settings)) {
+    model.settings = {};
+  }
+
+  if (!Array.isArray(model.elements)) {
+    model.elements = [];
+  }
+
+  model.elements.forEach(normalizeElementShape);
+
+  return model;
+}
+
+/**
+ * Prop types sharing Elementor's image-source XOR shape: an attachment `id`
+ * OR a `url`, but NOT both. `svg-src` (the `e-svg` widget's `svg` prop) is
+ * structurally identical to `image-src` and enforces the same rule.
+ */
+const IMAGE_SRC_TYPES = ['image-src', 'svg-src'];
+
+/**
+ * Sanitize a preset model so it passes Elementor's save-time style validation.
+ *
+ * Elementor's Image_Src prop (and svg-src, same shape) enforces an XOR rule:
+ * an image source may carry an attachment `id` OR a `url`, but NOT both.
+ * Native exports routinely include both (id + cached url), which renders fine
+ * in the editor but is REJECTED on publish with "...background: invalid_value"
+ * (or "svg: invalid_value" for e-svg). We walk the whole model and, for every
+ * image-src/svg-src that has both, drop the `url` (the attachment id is the
+ * source of truth; WP regenerates the url from it).
+ */
+export function sanitizeImageSrc(node) {
+  if (Array.isArray(node)) {
+    node.forEach(sanitizeImageSrc);
+    return;
+  }
+  if (!node || typeof node !== 'object') {
+    return;
+  }
+
+  if (IMAGE_SRC_TYPES.indexOf(node.$$type) !== -1 && node.value && typeof node.value === 'object') {
+    const src = node.value;
+    const hasId = src.id && src.id.value !== undefined && src.id.value !== null && src.id.value !== '';
+    const hasUrl =
+      src.url &&
+      (typeof src.url.value === 'string'
+        ? src.url.value !== ''
+        : src.url.value !== undefined && src.url.value !== null);
+    if (hasId && hasUrl) {
+      delete src.url;
+    }
+  }
+
+  Object.keys(node).forEach((key) => {
+    const child = node[key];
+    if (child && typeof child === 'object') {
+      sanitizeImageSrc(child);
+    }
+  });
+}
+
+/**
+ * Presets are exported from whatever Elementor build authored them, and the
+ * `$$type` string for the border-width object prop has differed across
+ * builds — some register it as `border-width-v2`, this codebase's installed
+ * core (Border_Width_Prop_Type::get_key()) as plain `border-width`. Prop
+ * validation requires an EXACT match against the registered key (see
+ * Has_Transformable_Validation::is_transformable() in elementor core), so a
+ * preset carrying the other build's tag fails save-time validation with
+ * "...border-width: invalid_value" even though the shape itself
+ * (block-start/block-end/inline-start/inline-end) is unchanged — it renders
+ * fine in the editor (validation is publish-time only) then blocks
+ * save/publish. Rewrite the known alias to the key this install registers.
+ */
+export function sanitizeBorderWidthType(node) {
+  if (Array.isArray(node)) {
+    node.forEach(sanitizeBorderWidthType);
+    return;
+  }
+  if (!node || typeof node !== 'object') {
+    return;
+  }
+
+  if (node.$$type === 'border-width-v2') {
+    node.$$type = 'border-width';
+  }
+
+  Object.keys(node).forEach((key) => {
+    const child = node[key];
+    if (child && typeof child === 'object') {
+      sanitizeBorderWidthType(child);
+    }
+  });
+}
+
+/** Fresh, collision-resistant local style id (mirrors Elementor's shape). */
+function randomStyleId() {
+  const rand = () => Math.random().toString(36).slice(2, 9);
+  return `e-${rand()}-${rand()}`;
+}
+
+// Elementor's own auto-generated local style ids always look like
+// "e-<hash>-<hash>". Some presets deliberately key a style under a literal,
+// human-readable name instead (e.g. "aae-btn-txtflip-content") so it doubles
+// as the widget's own compiled JS/CSS hook class (see btn.js / btn.scss).
+// Those must never be renamed — doing so silently detaches the element from
+// the hook it needs to function. Only ids matching Elementor's own generated
+// shape are safe to regenerate for collision-avoidance.
+const AUTO_STYLE_ID_RE = /^e-[a-z0-9]+-[a-z0-9]+$/i;
+
+/**
+ * Recursively regenerate every element's LOCAL style ids in a preset model and
+ * rewrite the matching `classes` references, so applying the same styled preset
+ * to multiple widgets never shares (collides on) style-id classes. `create` does
+ * NOT auto-regenerate style ids (only paste/import/duplicate hooks do), so we do
+ * it here before createElements(). Literal hook-class-keyed styles are left
+ * untouched — see AUTO_STYLE_ID_RE above.
+ */
+export function regenerateModelStyleIds(model) {
+  if (!model || typeof model !== 'object') {
+    return model;
+  }
+
+  const styles = model.styles;
+  if (styles && typeof styles === 'object' && !Array.isArray(styles)) {
+    const changed = {};
+    const newStyles = {};
+
+    Object.keys(styles).forEach((oldId) => {
+      if (!AUTO_STYLE_ID_RE.test(oldId)) {
+        newStyles[oldId] = styles[oldId];
+        return;
+      }
+      const newId = randomStyleId();
+      changed[oldId] = newId;
+      newStyles[newId] = { ...styles[oldId], id: newId };
+    });
+
+    model.styles = newStyles;
+
+    const classesProp = model.settings && model.settings.classes;
+    if (classesProp && classesProp.$$type === 'classes' && Array.isArray(classesProp.value)) {
+      classesProp.value = classesProp.value.map((cls) => changed[cls] || cls);
+    }
+  }
+
+  if (Array.isArray(model.elements)) {
+    model.elements.forEach(regenerateModelStyleIds);
+  }
+
+  return model;
+}
+
+// Element types that sit inside a slider track and MUST NOT carry their own
+// padding: the slider runtime sizes each slide to `100% / slidesPerView`, so any
+// padding on the slide root shrinks its content box and pushes the next slide
+// partly into view (a ~10% sliver). Presets authored for the plain Loop Grid do
+// set a card padding, so we strip it when the preset is applied to these types.
+const ZERO_PADDING_ROOT_TYPES = ['e-aae-a-loop-slide-item', 'e-aae-a-loop-item'];
+
+/**
+ * Remove `padding` from every style variant of a model's OWN styles (not its
+ * children's). Used to neutralise a preset's card padding when it's applied to a
+ * slide/loop item whose width is owned by the layout, so it can't leak a sliver
+ * of the neighbouring slide.
+ */
+function stripRootPadding(model) {
+  const styles = model && model.styles;
+  if (!styles || typeof styles !== 'object') {
+    return;
+  }
+  Object.keys(styles).forEach((sid) => {
+    const variants = styles[sid] && styles[sid].variants;
+    if (Array.isArray(variants)) {
+      variants.forEach((v) => {
+        if (v && v.props && 'padding' in v.props) {
+          delete v.props.padding;
+        }
+      });
+    }
+  });
+}
+
+/**
+ * Editor-preview sync for AAE interaction settings baked into presets
+ * (e.g. the Custom CSS extension props carrying a preset's hover/keyframe
+ * CSS). The editor bridge bulk-syncs every element's settings into the
+ * preview iframe's interaction maps ONCE on document:loaded — elements
+ * created later (a preset apply) never get synced, so their effects stay
+ * dead until reload. Mirror the boot pass here for the created subtree,
+ * then rescan so the runtime binds the new nodes. Retried because the
+ * preview nodes mount asynchronously (bind needs the node present).
+ */
+function syncAaeInteractionsToPreview(createdElements) {
+  const syncTree = (container) => {
+    if (!container || !container.model) {
+      return;
+    }
+    try {
+      applySettingsToDoms(container);
+    } catch (_) {
+      /* per-element sync is best-effort */
+    }
+    const kids = container.children;
+    if (kids && typeof kids.forEach === 'function') {
+      kids.forEach(syncTree);
+    }
+  };
+
+  const run = () => {
+    try {
+      createdElements.forEach(({ containerId }) => syncTree(getContainer(containerId)));
+      const win =
+        window.elementor?.$preview?.[0]?.contentWindow ||
+        document.querySelector('#elementor-preview-iframe')?.contentWindow;
+      if (win?.aaeAtomicAnimations?.scan) {
+        win.aaeAtomicAnimations.scan(win.document);
+      }
+    } catch (_) {
+      /* cosmetic only — never break the apply */
+    }
+  };
+
+  [0, 400, 1200, 2400].forEach((delay) => setTimeout(run, delay));
+}
+
+/**
+ * Cosmetic canvas fix for live-created atomic CONTAINERS (e-flexbox /
+ * e-div-block / e-grid): the editor canvas does not stamp their `classes`
+ * prop onto the preview node when they are created programmatically — the
+ * class attribute only renders on a full document render. The saved model is
+ * correct (frontend Twig renders the classes), but until a reload the preset
+ * would look unstyled and marker-class CSS (hover overlays) would not match.
+ * So after apply we mirror each created container's classes onto its preview
+ * node. Widgets are skipped — their own markup already renders classes, and
+ * duplicating e.g. a ::after marker onto the wrapper div would double the
+ * effect.
+ *
+ * Retries a few times because the preview nodes mount asynchronously.
+ */
+function stampContainerClassesIntoPreview(createdElements) {
+  const CONTAINER_ELTYPES = ['e-flexbox', 'e-div-block', 'e-grid', 'container'];
+
+  // Every AAE widget (e-aae-a-*) extends the same Atomic_Element_Base /
+  // is_container:true base as the core layout containers above, so it is
+  // rendered through the same canvas path and hits the same "classes prop
+  // isn't stamped on programmatic create" gap — not just the three core
+  // container types. Without this, a preset whose root IS an AAE widget
+  // (e.g. e-aae-a-btn itself) renders unstyled in the builder until reload,
+  // even though the saved model — and the frontend Twig render — are correct.
+  const isContainerLikeType = (elType) =>
+    typeof elType === 'string' &&
+    (CONTAINER_ELTYPES.indexOf(elType) !== -1 || elType.indexOf('e-aae-a-') === 0);
+
+  const stampModel = (model, previewDoc) => {
+    if (!model || !model.get) {
+      return;
+    }
+    const elType = model.get('elType');
+    if (isContainerLikeType(elType)) {
+      const id = model.get('id');
+      const classesProp = model.get('settings')?.get?.('classes');
+      const list = classesProp && Array.isArray(classesProp.value) ? classesProp.value : null;
+      const node = id && previewDoc.querySelector(`[data-id="${id}"]`);
+      if (node && list) {
+        list.forEach((cls) => {
+          if (typeof cls === 'string' && cls) {
+            node.classList.add(cls);
+          }
+        });
+      }
+    }
+    const children = model.get('elements');
+    if (children && children.each) {
+      children.each((child) => stampModel(child, previewDoc));
+    }
+  };
+
+  const stampAll = () => {
+    try {
+      const previewDoc =
+        window.elementor?.$preview?.[0]?.contentDocument ||
+        document.querySelector('#elementor-preview-iframe')?.contentDocument;
+      if (!previewDoc) {
+        return;
+      }
+      createdElements.forEach(({ containerId }) => {
+        const container = getContainer(containerId);
+        if (container && container.model) {
+          stampModel(container.model, previewDoc);
+        }
+      });
+    } catch (_) {
+      /* cosmetic only — never break the apply */
+    }
+  };
+
+  // Nodes mount async; classList.add is idempotent, so just fire a few times.
+  [0, 300, 900, 1800].forEach((delay) => setTimeout(stampAll, delay));
+}
+
+/**
+ * Read the current `aae_preset_snapshot` string setting straight off the V1
+ * container model (not a fetch — the value already lives in memory).
+ * Returns '' when the element has none (fresh drop, never presetted, or
+ * already reset).
+ */
+function readSnapshotSetting(elementId) {
+  const settings = getContainer(elementId)?.model?.get?.('settings');
+  const prop = settings?.get?.('aae_preset_snapshot');
+  return typeof prop?.value === 'string' ? prop.value : '';
+}
+
+/**
+ * Full raw model (settings + styles + elements, everything) for an element,
+ * exactly as Elementor's own createElements()/undoable() machinery captures
+ * a pre-change snapshot. Used once, the first time a preset is ever applied
+ * to an element, to remember what "Reset to Default" should restore.
+ */
+function captureFullModelJSON(elementId) {
+  try {
+    const model = getContainer(elementId)?.model;
+    const raw = typeof model?.toJSON === 'function' ? model.toJSON() : null;
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+    // Defensive: a snapshot must never carry itself. A fresh drop won't have
+    // one, but strip it just in case this is ever called on an element that
+    // does (e.g. a future caller reusing this on an already-restored node).
+    if (raw.settings && raw.settings.aae_preset_snapshot) {
+      delete raw.settings.aae_preset_snapshot;
+    }
+    return raw;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Resolve the target element's parent container + its index within it (V1
+ * container model, not the DOM).
+ */
+export function getParentAndIndex(elementId) {
+  const container = getContainer(elementId);
+  const parent = container?.parent || null;
+  if (!parent) {
+    return { parent: null, index: 0 };
+  }
+
+  let index = 0;
+  const children = parent.model?.get?.('elements');
+  if (children?.each) {
+    let i = 0;
+    children.each((child) => {
+      if (child.get('id') === elementId) {
+        index = i;
+      }
+      i += 1;
+    });
+  }
+  return { parent, index };
+}
+
+/**
+ * Replace `elementId` in place with the models built from `presetModel`.
+ *
+ * - container roots are unwrapped (their children are placed at the target's
+ *   position, the wrapper dropped);
+ * - a non-container root whose elType differs from `targetType` is rewritten to
+ *   `targetType` (so a slide reusing a grid-item preset stays a slide);
+ * - local style ids are regenerated and image-src XOR is enforced;
+ * - the original is removed and the first new element re-selected.
+ *
+ * Returns the first created element's id, or null on failure.
+ */
+export function applyPresetModel(presetModel, elementId, targetType, meta = {}) {
+  if (!presetModel) {
+    return null;
+  }
+
+  const { parent, index } = getParentAndIndex(elementId);
+  if (!parent) {
+    return null;
+  }
+
+  const root = JSON.parse(JSON.stringify(presetModel));
+
+  // Type alias (e.g. the slider slide item reusing Loop Grid presets): rewrite a
+  // non-container root's type to the target element's own type so the created
+  // element is valid where it lands (right Twig/class). Compare the EFFECTIVE
+  // type (widgetType wins over elType): native atomic widgets export as
+  // { elType: 'widget', widgetType: 'e-heading' } and that shape must be kept
+  // as-is — rewriting elType to 'e-heading' makes the v1 addElement child-type
+  // check delegate into a widget view and crash ("addElement is not a
+  // function"), because atomic containers only whitelist 'widget', not the
+  // native atomic type names.
+  const rootType = root.widgetType || root.elType;
+  if (!isContainerModel(root) && targetType && rootType && rootType !== targetType) {
+    if (root.widgetType) {
+      root.widgetType = targetType;
+    } else {
+      root.elType = targetType;
+    }
+  }
+
+  // Neutralise the preset's card padding when the applied root is a slide/loop
+  // item — the layout owns its width, so its own padding would leak a sliver of
+  // the next slide (the reported "right next slide 10% dekha jay").
+  const effectiveRootType = root.widgetType || root.elType;
+  if (ZERO_PADDING_ROOT_TYPES.includes(effectiveRootType)) {
+    stripRootPadding(root);
+  }
+
+  const models = isContainerModel(root)
+    ? Array.isArray(root.elements)
+      ? root.elements
+      : []
+    : [root];
+
+  if (!models.length) {
+    return null;
+  }
+
+  // "Reset to Default" support: figure out, BEFORE the original element is
+  // touched, what its own snapshot should be — carrying forward whatever it
+  // already has (so stacking preset A then preset B still reverts all the way
+  // back to what existed before A, not merely back to A), or capturing its
+  // current full model for the first time if it has none yet. Scoped to a
+  // single-root, same-type replacement in SNAPSHOT_REVERT_TYPES — see that
+  // allowlist's own comment for why this isn't attempted generically.
+  const canCarrySnapshot =
+    models.length === 1 &&
+    SNAPSHOT_REVERT_TYPES.includes(targetType) &&
+    (models[0].widgetType || models[0].elType) === targetType;
+
+  let snapshotToCarry = '';
+  if (canCarrySnapshot) {
+    snapshotToCarry = readSnapshotSetting(elementId);
+    if (!snapshotToCarry) {
+      const original = captureFullModelJSON(elementId);
+      if (original) {
+        try {
+          snapshotToCarry = JSON.stringify(original);
+        } catch (_) {
+          snapshotToCarry = '';
+        }
+      }
+    }
+  }
+
+  const elementsToCreate = models.map((child, i) => {
+    const model = JSON.parse(JSON.stringify(child));
+    delete model.id;
+    // Before anything else: a stale leaf-shaped node throws inside Elementor's
+    // own model constructor, so there is no later point to catch it.
+    migrateLegacyWidgetShape(model);
+    // Then the shape floor cloneItem() assumes — including on the children
+    // migrateLegacyWidgetShape() just seeded from config.default_children.
+    normalizeElementShape(model);
+    regenerateModelStyleIds(model);
+    sanitizeImageSrc(model);
+    sanitizeBorderWidthType(model);
+    if (i === 0 && canCarrySnapshot && snapshotToCarry) {
+      model.settings.aae_preset_snapshot = { $$type: 'string', value: snapshotToCarry };
+    }
+    return {
+      container: parent,
+      model,
+      options: { at: index + i, clone: true },
+    };
+  });
+
+  const result = createElements({
+    title: meta.title || 'Preset',
+    subtitle: meta.subtitle || 'Applied preset',
+    elements: elementsToCreate,
+  });
+
+  const firstNewId =
+    result && Array.isArray(result.createdElements) && result.createdElements[0]
+      ? result.createdElements[0].containerId
+      : null;
+
+  if (result && Array.isArray(result.createdElements)) {
+    stampContainerClassesIntoPreview(result.createdElements);
+    syncAaeInteractionsToPreview(result.createdElements);
+  }
+
+  removeElements({
+    elementIds: [elementId],
+    title: meta.title || 'Preset',
+    subtitle: 'Replaced element',
+  });
+
+  if (firstNewId) {
+    try {
+      selectElement(firstNewId);
+    } catch (_) {
+      /* selection is best-effort */
+    }
+  }
+
+  return firstNewId;
+}
+
+/**
+ * Whether `elementId` currently carries an `aae_preset_snapshot` — i.e.
+ * whether "Reset to Default" has anything to restore. Read straight off the
+ * live V1 model so callers (e.g. a control's visibility check) can use it
+ * reactively without a fetch.
+ */
+export function hasOriginalSnapshot(elementId) {
+  return !!readSnapshotSetting(elementId);
+}
+
+/**
+ * Undo every preset applied to `elementId` so far in one step, restoring it
+ * to exactly what it looked like before the FIRST preset was ever applied —
+ * the snapshot `applyPresetModel()` captured (or carried forward) onto it.
+ *
+ * Same replace-in-place mechanism as applyPresetModel (delete + recreate at
+ * the same parent/index), deliberately NOT Elementor's native undo: a single
+ * "Apply Preset" already produces two independent, unmergeable history
+ * entries (create, then remove — see applyPresetModel), so walking Ctrl+Z
+ * back to "before any preset" would take an unpredictable number of steps and
+ * could leave duplicate elements behind if the user stops partway. This is a
+ * single, explicit, one-way operation instead.
+ *
+ * Returns the restored element's new id, or null if there was no snapshot to
+ * restore (nothing to do) or the restore failed.
+ */
+export function resetElementToOriginal(elementId, meta = {}) {
+  const raw = readSnapshotSetting(elementId);
+  if (!raw) {
+    return null;
+  }
+
+  let original;
+  try {
+    original = JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+  if (!original || typeof original !== 'object') {
+    return null;
+  }
+
+  const { parent, index } = getParentAndIndex(elementId);
+  if (!parent) {
+    return null;
+  }
+
+  const model = JSON.parse(JSON.stringify(original));
+  delete model.id;
+  // The restored element must come back with no snapshot of its own — the
+  // element it's replacing already IS "no preset applied", and the Reset
+  // control's own visibility is keyed on this prop being empty.
+  if (model.settings && model.settings.aae_preset_snapshot) {
+    delete model.settings.aae_preset_snapshot;
+  }
+  migrateLegacyWidgetShape(model);
+  normalizeElementShape(model);
+  regenerateModelStyleIds(model);
+  sanitizeImageSrc(model);
+  sanitizeBorderWidthType(model);
+
+  const result = createElements({
+    title: meta.title || 'Reset to Default',
+    subtitle: meta.subtitle || 'Reverted to original',
+    elements: [{ container: parent, model, options: { at: index, clone: true } }],
+  });
+
+  const newId =
+    result && Array.isArray(result.createdElements) && result.createdElements[0]
+      ? result.createdElements[0].containerId
+      : null;
+
+  if (result && Array.isArray(result.createdElements)) {
+    stampContainerClassesIntoPreview(result.createdElements);
+    syncAaeInteractionsToPreview(result.createdElements);
+  }
+
+  removeElements({
+    elementIds: [elementId],
+    title: meta.title || 'Reset to Default',
+    subtitle: 'Removed presetted element',
+  });
+
+  if (newId) {
+    try {
+      selectElement(newId);
+    } catch (_) {
+      /* selection is best-effort */
+    }
+  }
+
+  return newId;
+}

@@ -1,0 +1,91 @@
+/* Highlight hovered element */
+.wcf-animb--hover-highlight {
+  outline: 2px solid red;
+}
+
+/* Popup styles */
+.wcfanimb-popup {
+  position: fixed;
+  background: #1f2124;
+  border-radius: 6px;
+  font-family: Arial, sans-serif;
+  box-shadow: 0px 2px 24px 0px rgba(0, 0, 0, 0.15);
+  z-index: 999999999;
+  width: 328px;
+}
+.wcfanimb-popup .wcfanimb-wrapper {
+  position: relative;
+  padding: 16px;
+  display: flex !important;
+  justify-content: center;
+  align-items: start;
+  flex-direction: column;
+  gap: 16px;
+  color: #fff;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanimb-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanimb-label {
+  margin: 0;
+  padding: 0;
+  color: white;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanimb-classes {
+  padding: 10px 8px;
+  background-color: #2b2c31;
+  border-radius: 6px;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanimb-classes .wcfanimb-popupContent {
+  margin: 0;
+  padding: 0;
+  color: white;
+  font-size: 13px;
+  width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 20;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanimb-classes .wcfanimb-popupContent.close {
+  -webkit-line-clamp: 1;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanim-btn-group {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanim-btn-group .wcfanimb-copy-btn {
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 1.14;
+  color: white;
+  background-color: #3f444b;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanim-btn-group .wcfanimb-copy-btn:hover {
+  background-color: #3f444b;
+  color: white;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanim-btn-group .wcfanimb-select-btn {
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 1.14;
+  color: white;
+  background-color: #fc6848;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.wcfanimb-popup .wcfanimb-wrapper .wcfanim-btn-group .wcfanimb-select-btn:hover {
+  background-color: #fc6848;
+  color: white;
+}

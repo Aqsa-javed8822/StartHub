@@ -1,0 +1,120 @@
+.aae--tiktok-feed {
+  gap: 20px;
+  display: grid;
+}
+.aae--tiktok-feed iframe {
+  height: 100%;
+}
+.aae--tiktok-feed img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+.aae--tiktok-feed .tiktok-video {
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+.aae--tiktok-feed .play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+.aae--tiktok-feed .play-icon::after {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 18px solid #fff;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+}
+
+.wcf--tiktok-video-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  background: #111;
+}
+.wcf--tiktok-video-wrapper .user-info-wrapper {
+  position: relative;
+  min-width: 20px;
+  max-width: 300px;
+}
+.wcf--tiktok-video-wrapper .user-info {
+  padding: 30px;
+}
+.wcf--tiktok-video-wrapper .user-info p {
+  color: #fff;
+  font-size: 16px;
+  margin-top: 15px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 30px;
+  margin-bottom: 30px;
+}
+.wcf--tiktok-video-wrapper .name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wcf--tiktok-video-wrapper .name {
+  font-size: 16px;
+  color: #fff;
+}
+.wcf--tiktok-video-wrapper .image {
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+}
+.wcf--tiktok-video-wrapper .image img {
+  width: 100%;
+  height: 100%;
+  border-radius: 100px;
+}
+.wcf--tiktok-video-wrapper .stat {
+  font-size: 16px;
+  color: #fff;
+  font-weight: 500;
+  text-transform: capitalize;
+  margin-bottom: 10px;
+}
+.wcf--tiktok-video-wrapper .toggle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 30px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #ddd;
+}
+
+.wcf--tiktok-video-nav {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.wcf--tiktok-video-nav button {
+  border: none;
+  outline: none;
+  padding: 9px 15px 7px;
+  border-radius: 5px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #fff;
+  background: #121212;
+}

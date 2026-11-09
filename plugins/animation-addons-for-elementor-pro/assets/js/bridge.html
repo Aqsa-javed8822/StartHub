@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animation Addons Bridge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: transparent;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Animation Addons Cross-Origin Bridge -->
+  <script>
+    /**
+     * Animation Addons Bridge - Cross-Origin Copy-Paste Hub
+     * This acts as a communication bridge between different domains
+     */
+
+    // Content storage (in-memory for this session)
+    let storedContent = null;
+    let storedMetadata = null;
+    let contentTimestamp = null;
+
+    // Content expiration (30 minutes)
+    const CONTENT_EXPIRY_MS = 30 * 60 * 1000;
+
+    /**
+     * Check if stored content has expired
+     */
+    function isContentExpired() {
+      if (!contentTimestamp) return true;
+      return (Date.now() - contentTimestamp) > CONTENT_EXPIRY_MS;
+    }
+
+    /**
+     * Clear expired content
+     */
+    function clearExpiredContent() {
+      if (isContentExpired()) {
+        storedContent = null;
+        storedMetadata = null;
+        contentTimestamp = null;
+      }
+    }
+
+    /**
+     * Handle incoming messages from any origin
+     */
+    window.addEventListener('message', (event) => {
+      // SECURITY: In production, you should validate the origin
+      // For now, we accept messages from any origin since this is a public bridge
+
+      const { type, content, metadata, requestId } = event.data;
+
+      // Clear expired content on any operation
+      clearExpiredContent();
+
+      switch (type) {
+        case 'COPY':
+          // Store the copied content
+          storedContent = content;
+          storedMetadata = metadata || {};
+          contentTimestamp = Date.now();
+
+          console.log('[AAE Bridge] Content stored:', {
+            hasContent: !!content,
+            metadata: storedMetadata,
+            timestamp: new Date(contentTimestamp).toISOString()
+          });
+
+          // Acknowledge receipt
+          event.source.postMessage({
+            type: 'COPY_SUCCESS',
+            requestId,
+            timestamp: contentTimestamp
+          }, event.origin);
+          break;
+
+        case 'PASTE':
+          // Return the stored content
+          if (storedContent && !isContentExpired()) {
+            event.source.postMessage({
+              type: 'PASTE_SUCCESS',
+              requestId,
+              content: storedContent,
+              metadata: storedMetadata
+            }, event.origin);
+
+            console.log('[AAE Bridge] Content delivered');
+          } else {
+            event.source.postMessage({
+              type: 'PASTE_EMPTY',
+              requestId,
+              message: storedContent ? 'Content expired. Please copy again.' : 'No content available. Please copy content first.'
+            }, event.origin);
+
+            console.log('[AAE Bridge] No content available');
+          }
+          break;
+
+        case 'PING':
+          // Check if bridge is ready
+          event.source.postMessage({
+            type: 'PONG',
+            requestId
+          }, event.origin);
+          break;
+
+        case 'HAS_CONTENT':
+          // Check if content is available
+          event.source.postMessage({
+            type: 'HAS_CONTENT_RESPONSE',
+            requestId,
+            hasContent: !!(storedContent && !isContentExpired())
+          }, event.origin);
+          break;
+
+        case 'CLEAR':
+          // Clear stored content
+          storedContent = null;
+          storedMetadata = null;
+          contentTimestamp = null;
+
+          event.source.postMessage({
+            type: 'CLEAR_SUCCESS',
+            requestId
+          }, event.origin);
+
+          console.log('[AAE Bridge] Content cleared');
+          break;
+
+        case 'GET_STATUS':
+          // Get bridge status
+          event.source.postMessage({
+            type: 'STATUS_RESPONSE',
+            requestId,
+            status: {
+              ready: true,
+              hasContent: !!(storedContent && !isContentExpired()),
+              contentAge: contentTimestamp ? (Date.now() - contentTimestamp) : null,
+              version: '2.0.0'
+            }
+          }, event.origin);
+          break;
+
+        default:
+          // Unknown message type
+          event.source.postMessage({
+            type: 'ERROR',
+            requestId,
+            error: 'Unknown message type: ' + type
+          }, event.origin);
+      }
+    });
+
+    // Notify parent that bridge is ready
+    window.parent.postMessage({ type: 'BRIDGE_READY' }, '*');
+
+    // Log bridge initialization
+    console.log('[AAE Bridge] Ready - Animation Addons Cross-Origin Bridge v2.0.0');
+
+    // Handle page visibility changes (cleanup when hidden for long time)
+    let hiddenTime = null;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        hiddenTime = Date.now();
+      } else if (hiddenTime) {
+        // If page was hidden for more than expiry time, clear content
+        if (Date.now() - hiddenTime > CONTENT_EXPIRY_MS) {
+          storedContent = null;
+          storedMetadata = null;
+          contentTimestamp = null;
+          console.log('[AAE Bridge] Content cleared due to inactivity');
+        }
+        hiddenTime = null;
+      }
+    });
+  </script>
+</body>
+</html>

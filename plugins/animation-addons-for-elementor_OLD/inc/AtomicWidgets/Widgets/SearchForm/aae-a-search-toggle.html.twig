@@ -1,0 +1,31 @@
+{% set classes = ['aae-a-search-toggle', 'e-con', 'e-atomic-element', base_styles.base|default('')] | merge(settings.classes | default([])) | join(' ') %}
+<div class="{{ classes }} {{ editor_classes | default('') }}"
+    data-id="{{ id }}"
+    data-element_type="{{ type }}"
+    data-e-type="{{ type }}"
+    data-interaction-id="{{ interaction_id }}"
+    role="button"
+    tabindex="0"
+    aria-label="Toggle search"
+    {% if settings._cssid is defined and settings._cssid is not empty %}
+        id="{{ settings._cssid | e('html_attr') }}"
+    {% endif %}
+    {% if settings.attributes is defined and settings.attributes is not empty %}
+        {{ settings.attributes | raw }}
+    {% endif %}
+    {{ editor_attributes | default('') | raw }}>
+    {# Resting state for the icon pair. On the frontend only the open glyph shows
+       until the JS opens the panel (it then writes inline display, which beats both
+       rules). In the EDITOR the close glyph is revealed instead, so it can be picked
+       in the Structure panel and styled without a way to "open" anything.
+
+       Specificity is deliberate: the icons' own atomic base styles compile as
+       `.elementor .e-<id>-base` = (0,2,0), so a plain `.aae-a-search-toggle__close`
+       would TIE and lose on document order. Chaining data-id + the toggle class
+       makes these (0,3,0) and (0,4,0) — no !important needed. #}
+    <style>
+        [data-id="{{ id }}"].aae-a-search-toggle .aae-a-search-toggle__close { display: none; }
+        .elementor-editor-active [data-id="{{ id }}"].aae-a-search-toggle .aae-a-search-toggle__close { display: inline-flex; }
+    </style>
+    {{ children_placeholder | raw }}
+</div>

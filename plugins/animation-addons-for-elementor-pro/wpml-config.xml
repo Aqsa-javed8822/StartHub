@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<wpml-config>
+
+  <!-- Custom Post Types -->
+  <custom-types>
+    <!-- Animation Addons Template (Elementor Templates) -->
+    <custom-type translate="1">wcf-addons-template</custom-type>
+    
+    <!-- Video Story Post Type -->
+    <custom-type translate="1">video-story</custom-type>
+    
+    <!-- Live Events Post Type -->
+    <custom-type translate="1">aae_live_event</custom-type>
+    
+    <!-- Post Rating Post Type -->
+    <custom-type translate="1">aaeaddon_post_rating</custom-type>
+  </custom-types>
+
+  <!-- Custom Taxonomies -->
+  <taxonomies>
+    <!-- Video Story Categories -->
+    <taxonomy translate="1">video-story-category</taxonomy>
+  </taxonomies>
+
+  <!-- Custom Fields (Post Meta) -->
+  <custom-fields>
+    <!-- Elementor Data - Main content builder data -->
+    <custom-field action="translate">_elementor_data</custom-field>
+    
+    <!-- Elementor Page Settings - Widget & page settings -->
+    <custom-field action="translate">_elementor_page_settings</custom-field>
+    
+    <!-- Video Story Link -->
+    <custom-field action="copy">_video_story_link</custom-field>
+    
+    <!-- Live Event Location -->
+    <custom-field action="translate">_aae_event_location</custom-field>
+    
+    <!-- Post Rating Fields -->
+    <custom-field action="copy">user_id</custom-field>
+    <custom-field action="translate">name</custom-field>
+    <custom-field action="copy">email</custom-field>
+    <custom-field action="copy">rating</custom-field>
+    <custom-field action="translate">review</custom-field>
+    <custom-field action="copy">reviewed_post_id</custom-field>
+    <custom-field action="copy">reviewed_post_type</custom-field>
+    <custom-field action="copy">ip_address</custom-field>
+    
+    <!-- Animation Builder Configurations -->
+    <custom-field action="copy">_wcf_animation_builder_config</custom-field>
+    
+    <!-- Global Extension Fields (Applied to widgets/containers via extensions) -->
+    <!-- Advanced Tooltip Extension -->
+    <custom-field action="translate">wcf_advanced_tooltip_content</custom-field>
+    
+    <!-- Popup Extension -->
+    <custom-field action="translate">popup_content</custom-field>
+    <custom-field action="copy">popup_elementor_templates</custom-field>
+    <custom-field action="copy">popup_condition</custom-field>
+    <custom-field action="copy">popup_content_type</custom-field>
+    
+    <!-- Wrapper Link Extension -->
+    <custom-field action="copy">wcf_wrapper_link</custom-field>
+    <custom-field action="copy">wcf_enable_wrapper_link</custom-field>
+  </custom-fields>
+
+  <!-- Term Meta (Taxonomy/Category Fields) -->
+  <custom-term-fields>
+    <!-- Category Additional Text -->
+    <custom-term-field action="translate">aae_cate_additional_text</custom-term-field>
+    
+    <!-- Category Image URL -->
+    <custom-term-field action="copy">aae_category_image</custom-term-field>
+    
+    <!-- Category Icon URL -->
+    <custom-term-field action="copy">aae_category_icon</custom-term-field>
+    
+    <!-- Category Color -->
+    <custom-term-field action="copy">aae_cat_color</custom-term-field>
+    
+    <!-- Category Background Color -->
+    <custom-term-field action="copy">aae_cat_bg_color</custom-term-field>
+  </custom-term-fields>
+
+  <!-- Admin Texts (for WPML String Translation) -->
+  <admin-texts>
+    <!-- Widget Settings -->
+    <key name="wcf_save_widgets">
+      <key name="*" />
+    </key>
+    
+    <!-- Extension Settings -->
+    <key name="wcf_save_extensions">
+      <key name="*" />
+    </key>
+    
+    <!-- GSAP Library Settings -->
+    <key name="wcf_save_gsap_library">
+      <key name="*" />
+    </key>
+  </admin-texts>
+
+</wpml-config>

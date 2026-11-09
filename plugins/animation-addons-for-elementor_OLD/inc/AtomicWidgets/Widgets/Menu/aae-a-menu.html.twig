@@ -1,0 +1,171 @@
+{% set classes = ['aae-a-menu', 'e-atomic-element', base_styles.base] | merge(settings.classes | default([])) | join(' ') %}
+
+{% set text_color         = settings.text_color                | default('') %}
+{% set hover_color        = settings.hover_color               | default('') %}
+{% set item_hover_bg      = settings.item_hover_bg             | default('') %}
+{% set active_color       = settings.active_color              | default('') %}
+{% set dd_bg              = settings.dropdown_bg               | default('') %}
+{% set dd_text            = settings.dropdown_text_color       | default('') %}
+{% set dd_item_bg         = settings.dropdown_item_bg          | default('') %}
+{% set dd_hover_bg        = settings.dropdown_hover_bg         | default('') %}
+{% set dd_hover_text      = settings.dropdown_hover_text_color | default('') %}
+{% set tg_icon            = settings.toggle_icon.url           | default('') %}
+{% set tg_icon_open       = settings.toggle_icon_open.url      | default('') %}
+
+{# The icon props ship real defaults so the panel shows a chevron thumbnail
+   instead of an empty Svg control, which renders as a broken image. Those
+   defaults must NOT count as "custom", or every menu would silently switch to
+   the mask-based icon path and lose the built-in glyphs — the CSS chevron on
+   flyouts and, more visibly, the +/− in Vertical layout.
+
+   Compared by path SUFFIX against the filenames in AAE_A_Menu::
+   TOGGLE_ICON_DEFAULT / TOGGLE_ICON_OPEN_DEFAULT, not against the constants
+   themselves, because this template also renders CLIENT-SIDE in the editor
+   canvas where no PHP value is reachable — the same constraint that forces
+   rendered_menu through an AJAX fallback. Absolute urls differ per install
+   (domain, subdirectory, multisite), so only the tail is stable. #}
+{% set tg_icon_is_custom      = tg_icon      is not empty and not (tg_icon      ends with '/Widgets/Menu/assets/icons/chevron-down.svg') %}
+{% set tg_icon_open_is_custom = tg_icon_open is not empty and not (tg_icon_open ends with '/Widgets/Menu/assets/icons/chevron-up.svg') %}
+{% set tg_color           = settings.toggle_color              | default('') %}
+{% set tg_bg              = settings.toggle_bg                 | default('') %}
+{% set tg_hover_bg        = settings.toggle_hover_bg           | default('') %}
+{% set ham_color          = settings.hamburger_color           | default('') %}
+{% set ham_bg             = settings.hamburger_bg              | default('') %}
+{% set ham_hover_bg       = settings.hamburger_hover_bg        | default('') %}
+{% set ham_border_color   = settings.hamburger_border_color    | default('') %}
+{% set item_border_color  = settings.item_border_color         | default('') %}
+{% set dd_border_color    = settings.dropdown_border_color     | default('') %}
+{% set drawer_border_color = settings.drawer_border_color      | default('') %}
+{% set dh_label_color     = settings.drawer_label_color        | default('') %}
+{% set dh_border_color    = settings.drawer_header_border_color | default('') %}
+
+{# Drawer header logo. Image_Transformer resolves `src` to a plain URL string on
+   the SERVER, but the editor canvas resolves this template client-side and can
+   hand back the raw `{id, url}` shape instead. Probing `.url` first and falling
+   through to the value itself covers both without branching on render context —
+   a string has no `.url`, so the test simply fails and the string is used. #}
+{% set dh_logo = settings.drawer_logo.src | default('') %}
+{% set dh_logo_src = dh_logo.url is defined ? dh_logo.url : dh_logo %}
+{% set dh_logo_alt = settings.drawer_logo.alt | default(settings.mobile_label | default('Menu')) %}
+{% set drawer_bg          = settings.drawer_bg                 | default('') %}
+{% set overlay_color      = settings.overlay_color             | default('') %}
+
+{% set style_vars %}
+--aae-menu-align: {{ settings.align | default('center') }};
+{% if text_color    %}--aae-menu-color: {{ text_color }};{% endif %}
+{% if hover_color   %}--aae-menu-hover-color: {{ hover_color }};{% endif %}
+{% if item_hover_bg %}--aae-menu-item-hover-bg: {{ item_hover_bg }};{% endif %}
+{% if active_color  %}--aae-menu-active-color: {{ active_color }};{% endif %}
+--aae-menu-active-weight: {{ settings.active_weight | default('600') }};
+{% if dd_bg         %}--aae-menu-dropdown-bg: {{ dd_bg }};{% endif %}
+{% if dd_text       %}--aae-menu-dropdown-text-color: {{ dd_text }};{% endif %}
+{% if dd_item_bg    %}--aae-menu-dropdown-item-bg: {{ dd_item_bg }};{% endif %}
+{% if dd_hover_bg   %}--aae-menu-dropdown-hover-bg: {{ dd_hover_bg }};{% endif %}
+{% if dd_hover_text %}--aae-menu-dropdown-hover-text-color: {{ dd_hover_text }};{% endif %}
+{% if tg_icon_is_custom      %}--aae-menu-toggle-icon: url('{{ tg_icon }}');{% endif %}
+{% if tg_icon_open_is_custom %}--aae-menu-toggle-icon-open: url('{{ tg_icon_open }}');{% endif %}
+{% if tg_color      %}--aae-menu-toggle-color: {{ tg_color }};{% endif %}
+{% if tg_bg         %}--aae-menu-toggle-bg: {{ tg_bg }};{% endif %}
+{% if tg_hover_bg   %}--aae-menu-toggle-hover-bg: {{ tg_hover_bg }};{% endif %}
+--aae-menu-toggle-size: {{ settings.toggle_size | default(28) }}px;
+--aae-menu-toggle-padding: {{ settings.toggle_padding | default(0) }}px;
+--aae-menu-toggle-gap: {{ settings.toggle_gap | default(10) }}px;
+--aae-menu-toggle-icon-size: {{ settings.toggle_icon_size | default(10) }}px;
+--aae-menu-toggle-radius: {{ settings.toggle_radius | default(50) }}px;
+{% if ham_color        %}--aae-menu-hamburger-color: {{ ham_color }};{% endif %}
+{% if ham_bg           %}--aae-menu-hamburger-bg: {{ ham_bg }};{% endif %}
+{% if ham_hover_bg     %}--aae-menu-hamburger-hover-bg: {{ ham_hover_bg }};{% endif %}
+{% if ham_border_color %}--aae-menu-hamburger-border-color: {{ ham_border_color }};{% endif %}
+--aae-menu-hamburger-size: {{ settings.hamburger_size | default(40) }}px;
+--aae-menu-hamburger-radius: {{ settings.hamburger_radius | default(6) }}px;
+--aae-menu-hamburger-border-width: {{ settings.hamburger_border_width | default(1) }}px;
+--aae-menu-hamburger-bar-width: {{ settings.hamburger_bar_width | default(18) }}px;
+--aae-menu-hamburger-bar-thickness: {{ settings.hamburger_bar_thickness | default(2) }}px;
+--aae-menu-hamburger-bar-gap: {{ settings.hamburger_bar_gap | default(4) }}px;
+{% if drawer_bg     %}--aae-menu-drawer-bg: {{ drawer_bg }};{% endif %}
+{% if overlay_color %}--aae-menu-drawer-overlay: {{ overlay_color }};{% endif %}
+--aae-menu-item-padding-x: {{ settings.padding_x          | default(14) }}px;
+--aae-menu-item-padding-y: {{ settings.padding_y          | default(10) }}px;
+--aae-menu-item-gap: {{ settings.item_gap          | default(4) }}px;
+--aae-menu-link-radius: {{ settings.link_radius         | default(6) }}px;
+{% if item_border_color %}--aae-menu-item-border-color: {{ item_border_color }};{% endif %}
+--aae-menu-item-border-width: {{ settings.item_border_width | default(0) }}px;
+--aae-menu-item-border-style: {{ settings.item_border_style | default('solid') }};
+{% if dd_border_color %}--aae-menu-dropdown-border-color: {{ dd_border_color }};{% endif %}
+--aae-menu-dropdown-border-width: {{ settings.dropdown_border_width | default(1) }}px;
+--aae-menu-dropdown-border-style: {{ settings.dropdown_border_style | default('solid') }};
+{% if drawer_border_color %}--aae-menu-drawer-border-color: {{ drawer_border_color }};{% endif %}
+--aae-menu-drawer-border-width: {{ settings.drawer_border_width | default(0) }}px;
+--aae-menu-drawer-border-style: {{ settings.drawer_border_style | default('solid') }};
+{% if dh_label_color  %}--aae-menu-drawer-label-color: {{ dh_label_color }};{% endif %}
+{% if dh_border_color %}--aae-menu-drawer-header-border-color: {{ dh_border_color }};{% endif %}
+--aae-menu-drawer-label-size: {{ settings.drawer_label_size | default(17) }}px;
+--aae-menu-drawer-label-weight: {{ settings.drawer_label_weight | default('600') }};
+--aae-menu-drawer-logo-width: {{ settings.drawer_logo_width | default(120) }}px;
+--aae-menu-drawer-header-border-width: {{ settings.drawer_header_border_width | default(1) }}px;
+--aae-menu-drawer-header-border-style: {{ settings.drawer_header_border_style | default('solid') }};
+--aae-menu-dropdown-panel-padding: {{ settings.dropdown_panel_padding | default(6) }}px;
+--aae-menu-dropdown-padding-x: {{ settings.dropdown_padding_x | default(14) }}px;
+--aae-menu-dropdown-padding-y: {{ settings.dropdown_padding_y | default(9) }}px;
+--aae-menu-dropdown-item-gap: {{ settings.dropdown_item_gap | default(2) }}px;
+--aae-menu-dropdown-item-radius: {{ settings.dropdown_item_radius | default(4) }}px;
+--aae-menu-dropdown-min-width: {{ settings.dropdown_min_width | default(220) }}px;
+--aae-menu-dropdown-radius: {{ settings.dropdown_radius      | default(8) }}px;
+--aae-menu-drawer-width: {{ settings.drawer_width     | default(320) }}px;
+--aae-menu-transition: {{ settings.transition_ms | default(250) }}ms cubic-bezier(.4,0,.2,1);
+{% endset %}
+
+<div class="{{ classes }} {{ editor_classes | default('') }}"
+    data-id="{{ id }}"
+    data-e-type="{{ type }}"
+    data-interaction-id="{{ interaction_id }}"
+    data-layout="{{ settings.layout | default('horizontal') }}"
+    data-hamburger="{{ settings.hamburger ? 'true' : 'false' }}"
+    data-breakpoint="{{ settings.breakpoint | default(768) }}"
+    data-drawer-effect="{{ settings.drawer_animation | default('slide-left') }}"
+    data-dropdown-effect="{{ settings.dropdown_animation | default('slide') }}"
+    data-dropdown-trigger="{{ settings.dropdown_trigger | default('hover') }}"
+    {# Marker, not a style hook: CSS cannot branch on "is this custom property set",
+       so the stylesheet keys the icon rules on this instead. Absent = built-in glyph. #}
+    {% if tg_icon_is_custom %}data-toggle-icon="custom"{% endif %}
+    style="{{ style_vars | replace({'\n':' '}) }}"
+    {% if settings._cssid is defined and settings._cssid is not empty %}
+        id="{{ settings._cssid | e('html_attr') }}"
+    {% endif %}
+    {% if settings.attributes is defined and settings.attributes is not empty %}
+        {{ settings.attributes | default('') | raw }}
+    {% endif %}
+    {{ editor_attributes | default('') | raw }}>
+
+    {# Hamburger toggle button (mobile only) #}
+    <button class="aae-a-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="aae-a-menu-nav-{{ id }}">
+        <span class="aae-a-menu-toggle-bars" aria-hidden="true">
+            <span></span><span></span><span></span>
+        </span>
+    </button>
+
+    {# Overlay (mobile drawer) #}
+    <div class="aae-a-menu-overlay" aria-hidden="true"></div>
+
+    <nav id="aae-a-menu-nav-{{ id }}" class="aae-a-menu-nav" role="navigation" data-menu-slug="{{ settings.menu | default('') }}">
+        <div class="aae-a-menu-nav-header">
+            {% if dh_logo_src is not empty %}
+                <img class="aae-a-menu-nav-logo" src="{{ dh_logo_src }}" alt="{{ dh_logo_alt | e('html_attr') }}">
+            {% else %}
+                <span class="aae-a-menu-nav-title">{{ settings.mobile_label | default('Menu') }}</span>
+            {% endif %}
+            <button class="aae-a-menu-close" type="button" aria-label="Close menu">
+                <span class="aae-a-menu-close-icon" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div class="aae-a-menu-nav-body">
+            {% if settings.rendered_menu is defined and settings.rendered_menu is not empty %}
+                {{ settings.rendered_menu | raw }}
+            {% else %}
+                <div class="aae-a-menu-placeholder">
+                    Menu rendered on frontend / preview.
+                </div>
+            {% endif %}
+        </div>
+    </nav>
+</div>

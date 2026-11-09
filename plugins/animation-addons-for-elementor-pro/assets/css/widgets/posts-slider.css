@@ -1,0 +1,358 @@
+.wcf--posts-slider {
+  display: flex;
+  justify-content: space-between;
+  flex-direction: column;
+  gap: 30px;
+}
+.wcf--posts-slider svg {
+  width: 1em;
+  height: 1em;
+}
+.wcf--posts-slider .slide-filter {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  display: flex;
+  gap: 30px;
+}
+.wcf--posts-slider .slide-filter li {
+  cursor: pointer;
+}
+.wcf--posts-slider .slide-filter .count {
+  font-size: 12px;
+  vertical-align: top;
+  display: inline-block;
+  line-height: 1;
+}
+.wcf--posts-slider .paginate-fill {
+  display: inline-block;
+  width: 100px;
+  height: 3px;
+  background: rgba(15, 15, 15, 0.12);
+  position: relative;
+  vertical-align: middle;
+}
+.wcf--posts-slider .paginate-fill:after {
+  content: "";
+  width: var(--width, 100%);
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: rgb(15, 15, 15);
+}
+.wcf--posts-slider .thumb {
+  line-height: 0;
+  overflow: hidden;
+}
+.wcf--posts-slider .wcf-arrow {
+  cursor: pointer;
+  color: #666666;
+  position: absolute;
+  padding: 15px;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: all 0.3s;
+  z-index: 9;
+}
+.wcf--posts-slider .wcf-arrow:hover {
+  color: #1C1D20;
+}
+.wcf--posts-slider .wcf-arrow-prev {
+  left: 0;
+}
+.wcf--posts-slider .wcf-arrow-next {
+  right: 0;
+}
+.wcf--posts-slider img {
+  height: 100%;
+  width: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+
+.elementor-widget-wcf--posts-slider.filter-direction-row-reverse .slide-filter, .elementor-widget-wcf--posts-slider.filter-direction-row .slide-filter {
+  flex-direction: column;
+}
+
+.ts-navigation {
+  gap: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  position: unset;
+}
+
+.wcf-post-meta .post-athor-area {
+  display: flex;
+}
+
+.post-athor-area .author-date {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-athor-area {
+  align-items: center;
+}
+
+.wcf__slider .layout-overlay .thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.wcf__slider .layout-overlay .content {
+  height: 100%;
+  transition: all 0.3s;
+}
+
+.wcf__slider .layout-overlay .content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.swiper-slide.layout-aside.slide_item {
+  display: flex;
+}
+
+.aside_thumbnail img {
+  height: 100%;
+  width: 100%;
+}
+
+.wcf--posts-slider .post-author {
+  display: inline-flex;
+  align-items: center;
+}
+.wcf--posts-slider .layout-overlay-2 .thumb {
+  overflow: hidden;
+  position: relative;
+}
+.wcf--posts-slider .layout-overlay-2 .thumb .play {
+  --x: var(--offset-x, 50%);
+  --y: var(--offset-y, 50%);
+  --tx: calc(-1 * var(--x));
+  --tY: calc(-1 * var(--y));
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(var(--tx), var(--tY));
+  z-index: 2;
+}
+.wcf--posts-slider .layout-overlay-2 .thumb img {
+  width: 100%;
+  height: auto;
+}
+.wcf--posts-slider .layout-overlay-2 .content {
+  margin: 0 auto;
+  margin-top: -120px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  background-color: #fff;
+  padding: 20px;
+  width: 80%;
+}
+.wcf--posts-slider .layout-overlay-2 .wcf-post-taxonomy a {
+  position: relative;
+}
+.wcf--posts-slider .layout-overlay-2 .wcf-post-taxonomy a:first-child::before, .wcf--posts-slider .layout-overlay-2 .wcf-post-taxonomy a:last-child::after {
+  position: absolute;
+  content: "";
+  width: 30px;
+  height: 1px;
+  top: 50%;
+  background-color: #222;
+}
+.wcf--posts-slider .layout-overlay-2 .wcf-post-taxonomy a:first-child::before {
+  left: -45px;
+}
+.wcf--posts-slider .layout-overlay-2 .wcf-post-taxonomy a:last-child::after {
+  right: -45px;
+}
+.wcf--posts-slider .layout-overlay-2 .wcf-post-meta,
+.wcf--posts-slider .layout-overlay-2 .wcf-post-title {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+.wcf--posts-slider .wcf-post-link {
+  font-size: 14px;
+  font-weight: 500;
+  position: relative;
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+}
+.wcf--posts-slider .wcf-post-link.right i,
+.wcf--posts-slider .wcf-post-link.right svg {
+  order: 15;
+}
+.wcf--posts-slider .wcf-post-link:hover {
+  color: #1C1D20;
+  fill: #1C1D20;
+}
+.wcf--posts-slider.layout-gallery .gallery-wrapper .g-thumb {
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0a0a0a;
+  margin: 0 auto;
+}
+.wcf--posts-slider.layout-gallery .gallery-wrapper .g-thumb iframe,
+.wcf--posts-slider.layout-gallery .gallery-wrapper .g-thumb img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+.wcf--posts-slider.layout-gallery-2 {
+  position: relative;
+}
+.wcf--posts-slider.layout-gallery-2 .gallery-wrapper .g-thumb iframe,
+.wcf--posts-slider.layout-gallery-2 .gallery-wrapper .content,
+.wcf--posts-slider.layout-gallery-2 .gallery-wrapper .swiper {
+  height: 100%;
+}
+.wcf--posts-slider.layout-gallery-2 .thumb {
+  width: 150px;
+  height: 120px;
+  position: relative;
+  cursor: pointer;
+}
+.wcf--posts-slider.layout-gallery-2 .thumb:hover .icon {
+  opacity: 1;
+}
+.wcf--posts-slider.layout-gallery-2 .thumb img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+.wcf--posts-slider.layout-gallery-2 .thumb .icon {
+  font-size: 50px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: all 0.3s;
+}
+.wcf--posts-slider.layout-gallery-2 .g-thumb {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+.wcf--posts-slider.layout-gallery-2 .g-thumb img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover;
+}
+.wcf--posts-slider.layout-gallery-2 .content {
+  position: relative;
+  z-index: 1;
+  padding-top: 150px;
+  padding-bottom: 350px;
+  text-align: center;
+}
+.wcf--posts-slider.layout-gallery-2 .slider-wrapper.wcf__posts-slider {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+}
+.wcf--posts-slider.layout-gallery-2 .slider-wrapper.wcf__posts-slider .swiper-slide-active .icon {
+  opacity: 1;
+}
+.wcf--posts-slider.layout-panorama .slider-wrapper {
+  width: 100%;
+  position: relative;
+}
+.wcf--posts-slider.layout-panorama .swiper {
+  width: 100%;
+  overflow: visible;
+}
+.wcf--posts-slider.layout-panorama .thumb {
+  display: inline-block;
+  width: 100%;
+  height: 400px;
+}
+.wcf--posts-slider.layout-panorama .thumb img {
+  width: 100%;
+}
+
+.wcf--title-underline .wcf-post-title a {
+  display: inline;
+  background-image: linear-gradient(var(--underline-color, #111), var(--underline-color, #111));
+  background-repeat: no-repeat;
+  background-size: 0 var(--underline-thickness, 1px);
+  background-position: 0 100%;
+  text-decoration: none;
+  transition: all var(--underline-transition, 0.5s);
+}
+.wcf--title-underline .wcf-post-title a:hover {
+  background-size: 100% var(--underline-thickness, 1px);
+}
+
+@keyframes tax-hover-effect {
+  0% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(0.2);
+  }
+}
+@keyframes tax-no-hover-effect {
+  0% {
+    transform: scaleX(0.2);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+.wcf--taxonomy-underline .wcf-post-taxonomy a {
+  display: inline-block;
+  position: relative;
+}
+.wcf--taxonomy-underline .wcf-post-taxonomy a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: var(--tax-btm-position, -3px);
+  width: 100%;
+  height: var(--tax-ul-thickness, 1px);
+  background-color: var(--tax-ul-color, #111);
+  transform: scaleX(1);
+  transform-origin: right;
+  transition: all var(--tax-ul-transition, 0.5s);
+}
+.wcf--taxonomy-underline .wcf-post-taxonomy a:hover::after {
+  animation: tax-hover-effect var(--tax-ul-transition, 0.5s) forwards;
+}
+.wcf--taxonomy-underline .wcf-post-taxonomy a:not(:hover)::after {
+  animation: tax-no-hover-effect var(--tax-ul-transition, 0.5s) forwards;
+}
+
+.wcf__slider .thumb a {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
