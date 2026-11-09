@@ -169,45 +169,6 @@ Update this table to match the plugins and tools you actually used.
 
 ---
 
-## Screenshots
-
-The screenshots below are full-page captures of the desktop view.
-
-### Home Page
-
-<div align="center">
-  <img src="screenshots/starthub-home.png" alt="StartHub Home Page" width="800">
-</div>
-
-### Portfolio Page
-
-<div align="center">
-  <img src="screenshots/starthub-portfolio.png" alt="StartHub Portfolio Page" width="800">
-</div>
-
-### Contact Page
-
-<div align="center">
-  <img src="screenshots/starthub-contact.png" alt="StartHub Contact Page" width="800">
-</div>
-
-### Side-by-Side Preview
-
-<table>
-  <tr>
-    <td align="center"><b>Home</b></td>
-    <td align="center"><b>Portfolio</b></td>
-    <td align="center"><b>Contact</b></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/starthub-home.png" alt="Home" width="260"></td>
-    <td><img src="screenshots/starthub-portfolio.png" alt="Portfolio" width="260"></td>
-    <td><img src="screenshots/starthub-contact.png" alt="Contact" width="260"></td>
-  </tr>
-</table>
-
----
-
 ## Repository Structure
 
 ```
