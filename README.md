@@ -273,6 +273,8 @@ Update this structure to reflect the actual contents of the repository.
 
 ---
 
-## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+
+
+
