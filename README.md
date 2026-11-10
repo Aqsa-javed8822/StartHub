@@ -26,6 +26,15 @@ StartHub is a modern, multi-page website for a data analytics and business solut
 
 ![StartHub Blog Post Page](./screenshot/blog1.png)
 
+## Responsive Homepage
+
+![StartHub Homepage Page](./screenshot/hp.png)
+
+## Responsive Contact Us Page
+
+![StartHub Conatct us Page](./screenshot/cu.png)
+
+
 ---
 
 ## Table of Contents
